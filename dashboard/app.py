@@ -89,9 +89,9 @@ c6.markdown(f'<div class="kpi-card kpi-red"><p class="kpi-value">{pipeline_veloc
 st.markdown("---")
 
 # --- Tabs ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🔄 Funnel Analysis", "📊 Source ROI", "👤 Recruiter Performance",
-    "📈 Trends & Time", "📋 Rejection Analysis"
+    "📈 Trends & Time", "📋 Rejection Analysis", "🎯 Executive Summary"
 ])
 
 # ===== TAB 1: FUNNEL =====
@@ -307,6 +307,205 @@ with tab5:
         decline_by_dept['Salary_Gap'] = (decline_by_dept['Avg_Expected_Salary'] - decline_by_dept['Avg_Offered_Salary']).round(1)
         st.dataframe(decline_by_dept, width="stretch", hide_index=True)
         st.warning("💡 **Finding**: Salary gap between expectation and offer is a key decline driver. Engineering has the widest gap.")
+
+# ===== TAB 6: EXECUTIVE SUMMARY =====
+with tab6:
+    st.subheader("🎯 Executive Summary — Stakeholder View")
+    st.markdown("*High-level insights for leadership — clear, actionable, visual.*")
+    st.markdown("---")
+    
+    # --- Hiring Health Score (Gauge Chart) ---
+    col1, col2, col3 = st.columns(3)
+    
+    # Calculate health metrics
+    screen_rate_val = fdf['Screened'].sum() / len(fdf) * 100 if len(fdf) > 0 else 0
+    offer_rate_val = fdf['Hired'].sum() / max(fdf['Offered'].sum(), 1) * 100
+    speed_score = max(0, 100 - (avg_tth - 25))  # Lower TTH = better
+    health_score = (conversion * 10 + offer_accept * 0.3 + speed_score * 0.3) / 3
+    
+    with col1:
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=round(conversion, 1),
+            title={'text': "Overall Conversion %", 'font': {'size': 16}},
+            gauge={
+                'axis': {'range': [0, 5]},
+                'bar': {'color': "#2ecc71"},
+                'steps': [
+                    {'range': [0, 1.5], 'color': '#fadbd8'},
+                    {'range': [1.5, 3], 'color': '#fef9e7'},
+                    {'range': [3, 5], 'color': '#d5f5e3'}
+                ],
+                'threshold': {'line': {'color': "red", 'width': 3}, 'thickness': 0.8, 'value': 2.5}
+            }
+        ))
+        fig.update_layout(height=250, margin=dict(l=20, r=20, t=50, b=20))
+        st.plotly_chart(fig, width="stretch")
+    
+    with col2:
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=round(offer_accept, 0),
+            title={'text': "Offer Accept Rate %", 'font': {'size': 16}},
+            gauge={
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "#3498db"},
+                'steps': [
+                    {'range': [0, 60], 'color': '#fadbd8'},
+                    {'range': [60, 80], 'color': '#fef9e7'},
+                    {'range': [80, 100], 'color': '#d5f5e3'}
+                ],
+                'threshold': {'line': {'color': "red", 'width': 3}, 'thickness': 0.8, 'value': 75}
+            }
+        ))
+        fig.update_layout(height=250, margin=dict(l=20, r=20, t=50, b=20))
+        st.plotly_chart(fig, width="stretch")
+    
+    with col3:
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=round(avg_tth, 0),
+            delta={'reference': 35, 'increasing': {'color': "red"}, 'decreasing': {'color': "green"}},
+            title={'text': "Avg Time to Hire (days)", 'font': {'size': 16}},
+            gauge={
+                'axis': {'range': [0, 60]},
+                'bar': {'color': "#9b59b6"},
+                'steps': [
+                    {'range': [0, 25], 'color': '#d5f5e3'},
+                    {'range': [25, 40], 'color': '#fef9e7'},
+                    {'range': [40, 60], 'color': '#fadbd8'}
+                ],
+                'threshold': {'line': {'color': "red", 'width': 3}, 'thickness': 0.8, 'value': 45}
+            }
+        ))
+        fig.update_layout(height=250, margin=dict(l=20, r=20, t=50, b=20))
+        st.plotly_chart(fig, width="stretch")
+    
+    st.markdown("---")
+    
+    # --- Waterfall Chart: Where Candidates Drop Off ---
+    st.markdown("#### 📉 Pipeline Leakage — Where We Lose Candidates")
+    
+    applied = len(fdf)
+    screened = fdf['Screened'].sum()
+    interviewed = fdf['Interviewed'].sum()
+    offered = fdf['Offered'].sum()
+    hired = fdf['Hired'].sum()
+    
+    fig = go.Figure(go.Waterfall(
+        name="Pipeline",
+        orientation="v",
+        measure=["absolute", "relative", "relative", "relative", "total"],
+        x=["Applied", "Lost at Screen", "Lost at Interview", "Lost at Offer", "Hired"],
+        y=[applied, -(applied - screened), -(screened - interviewed), -(interviewed - hired), hired],
+        text=[f"{applied:,}", f"-{applied-screened:,}", f"-{screened-interviewed:,}", f"-{interviewed-hired:,}", f"{hired}"],
+        textposition="outside",
+        connector={"line": {"color": "rgb(63, 63, 63)"}},
+        decreasing={"marker": {"color": "#e74c3c"}},
+        increasing={"marker": {"color": "#2ecc71"}},
+        totals={"marker": {"color": "#3498db"}}
+    ))
+    fig.update_layout(title="<b>Candidate Pipeline Waterfall</b>", height=400,
+                     margin=dict(l=20, r=20, t=50, b=20), showlegend=False)
+    st.plotly_chart(fig, width="stretch")
+    
+    st.markdown("---")
+    
+    # --- Source Efficiency Bubble Chart ---
+    st.markdown("#### 💰 Source Investment Matrix — Volume vs Quality vs Speed")
+    
+    source_bubble = fdf.groupby('Source').agg(
+        Applications=('CandidateID', 'count'),
+        Hires=('Hired', 'sum'),
+        Avg_TTH=('TimeToHire', lambda x: x[fdf.loc[x.index, 'Hired']==1].mean())
+    ).reset_index()
+    source_bubble['Hire_Rate'] = (source_bubble['Hires'] / source_bubble['Applications'] * 100).round(2)
+    source_bubble['Avg_TTH'] = source_bubble['Avg_TTH'].fillna(40)
+    
+    fig = px.scatter(
+        source_bubble, x='Applications', y='Hire_Rate',
+        size='Hires', color='Source',
+        hover_data=['Avg_TTH'],
+        title='<b>Source Matrix: Volume (x) vs Quality (y) vs Hires (size)</b>',
+        labels={'Applications': 'Total Applications', 'Hire_Rate': 'Hire Rate (%)'}
+    )
+    fig.update_layout(height=400, margin=dict(l=20, r=20, t=50, b=20))
+    fig.update_traces(marker=dict(sizemin=10))
+    st.plotly_chart(fig, width="stretch")
+    
+    st.info("""
+    **🎯 How to read this chart:**
+    - **Top-right** = High volume + High quality (ideal)
+    - **Top-left** = Low volume but high quality (increase investment here)
+    - **Bottom-right** = High volume but low quality (reduce spend or improve screening)
+    - **Bubble size** = Total hires from that source
+    """)
+    
+    st.markdown("---")
+    
+    # --- Department Heatmap: Multi-metric ---
+    st.markdown("#### 🏢 Department Performance Heatmap")
+    
+    dept_heat = fdf.groupby('Department').agg(
+        Screen_Rate=('Screened', 'mean'),
+        Interview_Rate=('Interviewed', 'mean'),
+        Offer_Rate=('Offered', 'mean'),
+        Hire_Rate=('Hired', 'mean'),
+    ).round(3) * 100
+    
+    fig = px.imshow(
+        dept_heat.values,
+        x=['Screen Rate %', 'Interview Rate %', 'Offer Rate %', 'Hire Rate %'],
+        y=dept_heat.index.tolist(),
+        text_auto='.1f',
+        color_continuous_scale='RdYlGn',
+        title='<b>Conversion Rates by Department (%) — Heatmap</b>',
+        aspect='auto'
+    )
+    fig.update_layout(height=300, margin=dict(l=20, r=20, t=50, b=20))
+    st.plotly_chart(fig, width="stretch")
+    
+    st.markdown("---")
+    
+    # --- Experience Level Sunburst ---
+    st.markdown("#### 🎓 Hiring Distribution — Department × Experience Level")
+    
+    hired_data = fdf[fdf['Hired'] == 1]
+    if len(hired_data) > 0:
+        fig = px.sunburst(
+            hired_data, path=['Department', 'ExperienceLevel'],
+            title='<b>Who Did We Hire? (Department → Experience Level)</b>',
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        fig.update_layout(height=500, margin=dict(l=20, r=20, t=50, b=20))
+        st.plotly_chart(fig, width="stretch")
+    
+    st.markdown("---")
+    
+    # --- Key Takeaways Box ---
+    st.markdown("#### 📋 Key Takeaways for Leadership")
+    
+    best_source = fdf.groupby('Source')['Hired'].mean().idxmax()
+    worst_source = fdf.groupby('Source')['Hired'].mean().idxmin()
+    fastest_dept = fdf[fdf['Hired']==1].groupby('Department')['TimeToHire'].mean().idxmin()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.success(f"""
+        **✅ What's Working:**
+        - Best source: **{best_source}** (highest hire rate)
+        - Fastest department: **{fastest_dept}**
+        - Offer accept rate at **{offer_accept:.0f}%** (within benchmark)
+        - Pipeline generating **{applied:,}** candidates
+        """)
+    with col2:
+        st.error(f"""
+        **🚨 Areas to Improve:**
+        - **{applied - screened:,}** candidates lost at screening (70% drop)
+        - Lowest source: **{worst_source}** (lowest ROI)
+        - Time to hire at **{avg_tth:.0f} days** (target: <30)
+        - **{int(fdf['Offered'].sum() - hires)}** offer declines (salary gap)
+        """)
 
 # --- Footer ---
 st.markdown("---")
