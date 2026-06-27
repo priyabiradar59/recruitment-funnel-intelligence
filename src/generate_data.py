@@ -32,7 +32,7 @@ np.random.seed(42)
 random.seed(42)
 
 
-def generate_recruitment_data(n_candidates=5000):
+def generate_recruitment_data(n_candidates=10000):
     """
     Generate a realistic recruitment funnel dataset.
     
@@ -242,7 +242,7 @@ def generate_recruitment_data(n_candidates=5000):
 
 
 if __name__ == "__main__":
-    df = generate_recruitment_data(5000)
+    df = generate_recruitment_data(10000)
     
     output_path = 'data/raw/recruitment_funnel_data.csv'
     df.to_csv(output_path, index=False)

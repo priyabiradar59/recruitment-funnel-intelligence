@@ -10,7 +10,7 @@
 
 ## 🎯 Problem Statement
 
-Companies spend **$4,000-$7,000 per hire** but rarely measure pipeline efficiency. This project analyzes **5,000 candidates** flowing through a 4-stage hiring funnel to identify **where candidates drop off, which sources deliver best ROI, and how to reduce time-to-hire**.
+Companies spend **$4,000-$7,000 per hire** but rarely measure pipeline efficiency. This project analyzes **10,000 candidates** flowing through a 4-stage hiring funnel to identify **where candidates drop off, which sources deliver best ROI, and how to reduce time-to-hire**.
 
 ---
 
@@ -81,7 +81,7 @@ streamlit run dashboard/app.py
 │   └── generate_data.py          # Synthetic data generator (industry benchmarks)
 ├── sql/
 │   └── recruitment_funnel_queries.sql  # 8 advanced SQL queries
-├── data/raw/                     # Generated recruitment dataset (5,000 candidates)
+├── data/raw/                     # Generated recruitment dataset (10,000 candidates)
 ├── requirements.txt
 └── README.md
 ```
